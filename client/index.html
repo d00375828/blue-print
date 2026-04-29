@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Project Manager</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Fraunces:wght@600;700&display=swap"
+    rel="stylesheet"
+  />
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="container">
+    <header class="header">
+      <div class="eyebrow">Dashboard</div>
+      <h1>BluePrint</h1>
+      <p class="muted">
+        Project Timeline Manager
+      </p>
+    </header>
+
+    <main class="layout">
+      <section class="panel panel-soft">
+        <div class="section-heading">
+          <div>
+            <h2>Create Project</h2>
+          </div>
+        </div>
+
+        <form class="form" @submit.prevent="createProject">
+          <label>
+            Title
+            <input v-model="newProject.title" type="text" placeholder="Enter project title" />
+          </label>
+
+          <label>
+            Goal
+            <textarea
+              v-model="newProject.goal"
+              rows="4"
+              placeholder="Describe the goal of the project"
+            ></textarea>
+          </label>
+
+          <button type="submit" :disabled="loading || agentLoading || taskLoading || deleteLoading">
+            Create Project
+          </button>
+        </form>
+
+        <p v-if="error" class="error">{{ error }}</p>
+        <p v-if="message" class="message">{{ message }}</p>
+
+        <hr />
+
+        <div class="section-heading">
+          <div>
+            <h2>Projects</h2>
+          </div>
+        </div>
+
+        <p v-if="loading" class="muted">Loading projects...</p>
+
+        <div v-else-if="projects.length === 0" class="empty">
+          No projects yet.
+        </div>
+
+        <div
+          v-for="project in projects"
+          :key="project._id"
+          class="project-card"
+          :class="{ active: selectedProject && selectedProject._id === project._id }"
+          @click="selectProject(project)"
+        >
+          <h3>{{ project.title }}</h3>
+          <p class="muted">{{ project.goal }}</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div v-if="!selectedProject" class="empty">
+          Select a project to view details.
+        </div>
+
+        <div v-else>
+          <div class="detail-header">
+            <div>
+              <h2>{{ selectedProject.title }}</h2>
+              <p class="muted">{{ selectedProject.goal }}</p>
+            </div>
+
+            <div class="button-row">
+              <button
+                type="button"
+                @click="runAgent('generate-plan')"
+                :disabled="agentLoading || taskLoading || deleteLoading"
+              >
+                Generate Timeline
+              </button>
+              <button
+                type="button"
+                @click="runAgent('analyze')"
+                :disabled="agentLoading || taskLoading || deleteLoading"
+              >
+                Analyze Project
+              </button>
+              <button
+                type="button"
+                class="danger-button"
+                @click="deleteProject"
+                :disabled="agentLoading || taskLoading || deleteLoading"
+              >
+                Delete Project
+              </button>
+            </div>
+          </div>
+
+          <div class="progress-card">
+            <div>
+              <div class="section-label">Progress</div>
+              <div class="progress-value">{{ timelineProgress }}%</div>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-bar-fill" :style="{ width: `${timelineProgress}%` }"></div>
+            </div>
+          </div>
+
+          <p v-if="agentLoading" class="muted">AI is thinking...</p>
+          <p v-if="taskLoading" class="muted">Saving task update...</p>
+          <p v-if="deleteLoading" class="muted">Deleting project...</p>
+
+          <hr />
+
+          <div class="section-heading">
+            <div>
+              <h3>Timeline</h3>
+            </div>
+          </div>
+
+          <div v-if="!selectedProject.tasks || selectedProject.tasks.length === 0" class="empty">
+            No timeline yet.
+          </div>
+
+          <div
+            v-for="group in timelineGroups"
+            :key="group.phase"
+            class="timeline-group"
+          >
+            <div class="timeline-phase">
+              <div class="timeline-phase-dot"></div>
+              <div class="timeline-phase-content">
+                <h4>{{ group.phase }}</h4>
+                <p class="muted">{{ group.completed }} of {{ group.tasks.length }} tasks complete</p>
+              </div>
+            </div>
+
+            <div
+              v-for="(task, index) in group.tasks"
+              :key="`${group.phase}-${index}`"
+              class="task-card timeline-task"
+              :class="{ complete: task.status === 'done' }"
+            >
+              <div class="task-main">
+                <div class="task-order">{{ task.order }}</div>
+                <div>
+                <strong>{{ task.title }}</strong>
+                  <p class="muted">Priority: {{ task.priority }}</p>
+                </div>
+              </div>
+
+              <select v-model="task.status" @change="updateTaskStatus" :disabled="taskLoading || agentLoading || deleteLoading">
+                <option value="todo">todo</option>
+                <option value="done">done</option>
+              </select>
+            </div>
+          </div>
+
+          <hr />
+
+          <div class="section-heading">
+            <div>
+              <div class="section-label">Status</div>
+              <h3>Project Summary</h3>
+            </div>
+          </div>
+
+          <div v-if="selectedProject.healthSummary" class="analysis-box">
+            <p>{{ selectedProject.healthSummary }}</p>
+          </div>
+          <div v-else class="empty">
+            No analysis yet.
+          </div>
+
+          <div class="section-heading">
+            <div>
+              <div class="section-label">Focus</div>
+              <h3>Next Actions</h3>
+            </div>
+          </div>
+
+          <ul
+            v-if="selectedProject.nextActions && selectedProject.nextActions.length > 0"
+            class="next-actions"
+          >
+            <li v-for="(action, index) in selectedProject.nextActions" :key="index">
+              {{ action }}
+            </li>
+          </ul>
+          <div v-else class="empty">
+            No next actions yet.
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
