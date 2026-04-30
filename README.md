@@ -35,7 +35,7 @@ The app uses one main resource: `Project`.
 ## What it looks like
 
 <p align="center">
-  <img src="./docs/blue-print-screenshot1.png" alt="Blue Print Screenshot">
+  <img src="./docs/blue-print-screenshot11.png" alt="Blue Print Screenshot">
 </p>
 
 <p align="center">
