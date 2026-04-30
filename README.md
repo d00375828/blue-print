@@ -32,6 +32,15 @@ The app uses one main resource: `Project`.
 
 ---
 
+## What it looks like
+
+<p align="center">
+  <img src="./docs/blue-print-screenshot1.png" alt="Blue Print Screenshot">
+</p>
+
+<p align="center">
+  <img src="./docs/blue-print-screenshot2.png" alt="Blue Print Screenshot 2">
+</p>
 ## REST API
 
 - POST `/api/projects`
